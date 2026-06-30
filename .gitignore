@@ -1,0 +1,5 @@
+.gitignore
+backend/.venv/
+backend/device_tracker.db
+frontend/node_modules/
+.next/
