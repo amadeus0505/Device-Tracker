@@ -59,12 +59,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Start the detector:
+2. If you want to grant network capabilities only to the venv Python, replace the symlink with a copy of the real binary first:
+```bash
+REAL_PYTHON="$(readlink -f .venv/bin/python)"
+rm .venv/bin/python
+cp "$REAL_PYTHON" .venv/bin/python
+sudo setcap cap_net_raw+ep .venv/bin/python
+sudo setcap cap_net_admin+ep .venv/bin/python
+```
+
+3. Start the detector:
 ```bash
 python -m app.worker
 ```
 
-3. Watch the terminal output for lines like:
+4. Watch the terminal output for lines like:
 - `[detector] sniffing dhcp on host interface`
 - `[detector] dhcp packet ...`
 - `[detector] match device_id=...`

@@ -45,7 +45,7 @@ def log_event(message: str, **extra):
 def startup() -> None:
     db = SessionLocal()
     try:
-        log_event("startup.begin")
+        log_event("startup.begin", db_path=str(engine.url.database))
         seed_defaults(db)
         log_event("startup.seeded")
     finally:

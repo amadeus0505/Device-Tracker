@@ -12,11 +12,33 @@ class NetworkDetector:
     def __init__(self, db_factory=SessionLocal):
         self.db_factory = db_factory
 
-    def check_known_device(self, fp: str):
+    def _load_known_devices(self) -> list[KnownDevice]:
         db = self.db_factory()
         try:
-            device = db.query(KnownDevice).filter(KnownDevice.dhcp_fingerprint == fp).first()
-            print(f"[detector] lookup fp={fp!r} found={bool(device)}")
+            devices = db.query(KnownDevice).order_by(KnownDevice.id.asc()).all()
+            print(f"[detector] loaded {len(devices)} known devices from db")
+            for d in devices:
+                print(f"[detector] known device id={d.id} owner={d.owner_name} fp={d.dhcp_fingerprint!r}")
+            return devices
+        finally:
+            db.close()
+
+    def _normalize_fp(self, fp: str) -> str:
+        return ",".join(str(int(part)) for part in fp.split(",") if part.strip() != "")
+
+    def check_known_device(self, fp: str):
+        normalized_fp = self._normalize_fp(fp)
+        db = self.db_factory()
+        try:
+            device = (
+                db.query(KnownDevice)
+                .filter(KnownDevice.dhcp_fingerprint == normalized_fp)
+                .first()
+            )
+            print(f"[detector] lookup fp={normalized_fp!r} found={bool(device)}")
+            if not device:
+                for d in db.query(KnownDevice).order_by(KnownDevice.id.asc()).all():
+                    print(f"[detector] candidate id={d.id} owner={d.owner_name} stored_fp={d.dhcp_fingerprint!r} normalized={self._normalize_fp(d.dhcp_fingerprint or '')!r}")
             return device
         finally:
             db.close()
@@ -43,12 +65,15 @@ class NetworkDetector:
         print(f"[detector] dhcp packet mac={mac} fp={fp}")
         db = self.db_factory()
         try:
-            device = db.query(KnownDevice).filter(KnownDevice.dhcp_fingerprint == fp).first()
+            normalized_fp = self._normalize_fp(fp)
+            device = db.query(KnownDevice).filter(KnownDevice.dhcp_fingerprint == normalized_fp).first()
             if device:
                 print(f"[detector] match device_id={device.id} owner={device.owner_name}")
                 device_stats_service.mark_connected(db, device, mac)
+                print(f"[detector] mark_connected committed device_id={device.id} connected={device.connected} mac={device.mac}")
             else:
                 print("[detector] no device match")
+                self._load_known_devices()
         finally:
             db.close()
 
