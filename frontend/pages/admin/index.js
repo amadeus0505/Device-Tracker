@@ -9,6 +9,7 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [fp, setFp] = useState('');
+  const [message, setMessage] = useState('');
 
   async function authFetch(url, options = {}) {
     const token = localStorage.getItem('device_tracker_token');
@@ -41,6 +42,7 @@ export default function AdminPage() {
     });
     setUsername('');
     setPassword('');
+    setMessage('User created');
     refresh();
   }
 
@@ -53,12 +55,14 @@ export default function AdminPage() {
     });
     setOwnerName('');
     setFp('');
+    setMessage('Device created');
     refresh();
   }
 
   return (
     <main>
       <h1>Admin</h1>
+      {message ? <p>{message}</p> : null}
       <section>
         <h2>Create user</h2>
         <form onSubmit={createUser}>
