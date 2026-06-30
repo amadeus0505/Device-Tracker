@@ -42,12 +42,23 @@ class DeviceStatsService:
         recent_sessions_30 = sum(1 for e in events if e.connected_at and e.connected_at >= recent_cutoff_30)
         total_minutes = 0
         last_seen = None
+        history = []
         for e in events:
             if e.connected_at and (last_seen is None or e.connected_at > last_seen):
                 last_seen = e.connected_at
             end = e.disconnected_at or now
             if e.connected_at:
                 total_minutes += int((end - e.connected_at).total_seconds() // 60)
+            history.append(
+                {
+                    "id": e.id,
+                    "device_id": e.device_id,
+                    "mac": e.mac,
+                    "ip": e.ip,
+                    "connected_at": e.connected_at.isoformat() if e.connected_at else None,
+                    "disconnected_at": e.disconnected_at.isoformat() if e.disconnected_at else None,
+                }
+            )
         return {
             "device_id": device.id,
             "owner_name": device.owner_name,
@@ -57,6 +68,7 @@ class DeviceStatsService:
             "recent_sessions_30": recent_sessions_30,
             "total_minutes_connected": total_minutes,
             "last_seen": last_seen.isoformat() if last_seen else None,
+            "history": history,
         }
 
 

@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import Base, SessionLocal, engine
 from app.core.security import create_access_token, verify_password
-from app.crud import create_device, create_user, seed_defaults
+from app.crud import create_device, create_user, seed_defaults, update_device
 from app.models import KnownDevice, User
-from app.schemas import DeviceCreate, DeviceRead, DeviceStats, Token, UserCreate, UserRead
+from app.schemas import DeviceCreate, DeviceRead, DeviceStats, DeviceUpdate, Token, UserCreate, UserRead
 from app.services import device_stats_service
 
 Base.metadata.create_all(bind=engine)
@@ -17,7 +17,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Device Tracker API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,7 +78,15 @@ def add_device(device_in: DeviceCreate, db: Session = Depends(get_db)):
     return create_device(db, device_in)
 
 
-@app.get("/devices/{device_id}/stats", response_model=DeviceStats)
+@app.put("/devices/{device_id}", response_model=DeviceRead)
+def edit_device(device_id: int, device_in: DeviceUpdate, db: Session = Depends(get_db)):
+    device = db.query(KnownDevice).filter(KnownDevice.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return update_device(db, device, device_in.model_dump())
+
+
+@app.get("/devices/{device_id}/stats")
 def read_device_stats(device_id: int, db: Session = Depends(get_db)):
     device = db.query(KnownDevice).filter(KnownDevice.id == device_id).first()
     if not device:

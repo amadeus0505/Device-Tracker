@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Token(BaseModel):
@@ -11,8 +11,8 @@ class TokenData(BaseModel):
 
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=8, max_length=128)
     is_admin: bool = False
 
 
@@ -27,10 +27,18 @@ class UserRead(BaseModel):
 
 
 class DeviceCreate(BaseModel):
-    owner_name: str
-    dhcp_fingerprint: str
+    owner_name: str = Field(min_length=1, max_length=128)
+    dhcp_fingerprint: str = Field(min_length=1)
     mac: str | None = None
     ip: str | None = None
+
+
+class DeviceUpdate(BaseModel):
+    owner_name: str | None = None
+    dhcp_fingerprint: str | None = None
+    mac: str | None = None
+    ip: str | None = None
+    connected: bool | None = None
 
 
 class DeviceRead(BaseModel):
@@ -40,6 +48,18 @@ class DeviceRead(BaseModel):
     ip: str | None = None
     dhcp_fingerprint: str
     connected: bool
+
+    class Config:
+        from_attributes = True
+
+
+class DeviceEventRead(BaseModel):
+    id: int
+    device_id: int
+    mac: str
+    ip: str | None = None
+    connected_at: str
+    disconnected_at: str | None = None
 
     class Config:
         from_attributes = True

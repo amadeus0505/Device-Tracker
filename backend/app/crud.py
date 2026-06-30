@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
@@ -33,6 +35,15 @@ def create_device(db: Session, device_in: DeviceCreate) -> KnownDevice:
         ip=device_in.ip,
     )
     db.add(device)
+    db.commit()
+    db.refresh(device)
+    return device
+
+
+def update_device(db: Session, device: KnownDevice, data: dict) -> KnownDevice:
+    for key, value in data.items():
+        if value is not None and hasattr(device, key):
+            setattr(device, key, value)
     db.commit()
     db.refresh(device)
     return device

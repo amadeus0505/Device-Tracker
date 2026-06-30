@@ -13,7 +13,14 @@ export default function DeviceDetailPage({ id }) {
     <main>
       <h1>Device {id}</h1>
       {stats ? (
-        <pre>{JSON.stringify(stats, null, 2)}</pre>
+        <>
+          <p>Owner: {stats.owner_name}</p>
+          <p>Connected: {String(stats.connected)}</p>
+          <p>Total sessions: {stats.total_sessions}</p>
+          <p>Last seen: {stats.last_seen || 'n/a'}</p>
+          <h2>History</h2>
+          <pre>{JSON.stringify(stats.history, null, 2)}</pre>
+        </>
       ) : (
         <p>Loading…</p>
       )}
