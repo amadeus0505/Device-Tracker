@@ -5,13 +5,31 @@ Full-stack device tracking dashboard with FastAPI, Next.js, and SQLite.
 ## Overview
 - **Web app** runs in Docker Compose
 - **Detector service** runs on the Linux host for reliable ARP/DHCP visibility
-- **SQLite** is stored on the host in `./data/device_tracker.db`
+- **SQLite** is stored in a configurable data directory
 - **Login-only** access with admin-created users
 
 ## Services
 - `backend`: FastAPI API + SQLite access
 - `frontend`: Next.js UI
 - `detector`: host-run process that listens for DHCP packets and updates device state
+
+## Configuration
+The data directory is configured through:
+```bash
+DEVICE_TRACKER_DATA_DIR
+```
+
+Default:
+```bash
+./data
+```
+
+The SQLite database is created at:
+```bash
+$DEVICE_TRACKER_DATA_DIR/device_tracker.db
+```
+
+This keeps the project portable across machines while still letting the backend and detector use the same database file.
 
 ## Requirements
 - Linux host
@@ -28,26 +46,21 @@ Change this immediately after first login.
 ## Start the web app
 
 1. Make sure Docker is running.
-2. Start backend + frontend:
+2. Optionally set a custom data directory:
+```bash
+export DEVICE_TRACKER_DATA_DIR=./data
+```
+3. Start backend + frontend:
 ```bash
 docker compose up --build
 ```
-3. Open the app:
+4. Open the app:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 
-## Database location
-
-The database file is created automatically on first start at:
-```bash
-./data/device_tracker.db
-```
-
-If the file does not exist yet, that is normal — SQLite creates it when the backend first writes to it.
-
 ## Run the detector on the host
 
-The detector must use the same database file as the Docker backend.
+The detector must use the same data directory as the Docker backend.
 
 ### Option A: Run directly with Python
 
@@ -68,12 +81,17 @@ sudo setcap cap_net_raw+ep .venv/bin/python
 sudo setcap cap_net_admin+ep .venv/bin/python
 ```
 
-3. Start the detector:
+3. Make sure the detector points to the same data directory as Docker, for example:
+```bash
+export DEVICE_TRACKER_DATA_DIR=./data
+```
+
+4. Start the detector:
 ```bash
 python -m app.worker
 ```
 
-4. Watch the terminal output for lines like:
+5. Watch the terminal output for lines like:
 - `[detector] sniffing dhcp on host interface`
 - `[detector] dhcp packet ...`
 - `[detector] match device_id=...`
@@ -91,6 +109,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/Device-Tracker/backend
+Environment=DEVICE_TRACKER_DATA_DIR=/opt/Device-Tracker/data
 ExecStart=/opt/Device-Tracker/backend/.venv/bin/python -m app.worker
 Restart=always
 RestartSec=5
