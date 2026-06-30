@@ -3,6 +3,6 @@ uvicorn[standard]
 sqlalchemy
 pydantic
 python-jose[cryptography]
-passlib[bcrypt]
+passlib
 python-multipart
 scapy

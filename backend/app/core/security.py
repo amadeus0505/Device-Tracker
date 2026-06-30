@@ -3,7 +3,7 @@ from jose import jwt
 
 from app.core.config import ALGORITHM, SECRET_KEY
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
