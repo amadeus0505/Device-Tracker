@@ -10,7 +10,7 @@ from app.core.database import Base, SessionLocal, engine
 from app.core.security import create_access_token, verify_password
 from app.crud import create_device, create_user, seed_defaults, update_device
 from app.models import KnownDevice, User
-from app.schemas import DeviceCreate, DeviceRead, DeviceStats, DeviceUpdate, Token, UserCreate, UserRead
+from app.schemas import DeviceCreate, DeviceOverview, DeviceRead, DeviceUpdate, Token, UnknownConnectedDevice, UserCreate, UserRead
 from app.services import device_stats_service
 
 logging.basicConfig(level=logging.INFO)
@@ -92,6 +92,31 @@ def list_devices(db: Session = Depends(get_db)):
     devices = db.query(KnownDevice).order_by(KnownDevice.created_at.desc()).all()
     log_event("devices.list", count=len(devices))
     return devices
+
+
+@app.get("/devices/connected-unknown", response_model=list[UnknownConnectedDevice])
+def list_unknown_connected_devices(db: Session = Depends(get_db)):
+    unknown = device_stats_service.unknown_connected_devices(db)
+    log_event("devices.unknown_connected", count=len(unknown))
+    return unknown
+
+
+@app.get("/devices/overview", response_model=DeviceOverview)
+def devices_overview(db: Session = Depends(get_db)):
+    known_devices = db.query(KnownDevice).order_by(KnownDevice.created_at.desc()).all()
+    connected_known_devices = [d for d in known_devices if d.connected]
+    unknown = device_stats_service.unknown_connected_devices(db)
+    log_event(
+        "devices.overview",
+        known=len(known_devices),
+        connected_known=len(connected_known_devices),
+        unknown=len(unknown),
+    )
+    return DeviceOverview(
+        known_devices=known_devices,
+        unknown_connected_devices=[UnknownConnectedDevice(**item) for item in unknown],
+        connected_known_devices=connected_known_devices,
+    )
 
 
 @app.post("/devices", response_model=DeviceRead)
