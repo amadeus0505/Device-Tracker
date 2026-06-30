@@ -1,3 +1,7 @@
+import random
+import threading
+import time
+
 from scapy.all import ARP, BOOTP, DHCP, Ether, srp, sniff
 
 from app.core.database import SessionLocal
@@ -11,6 +15,8 @@ KNOWN_OPTION_ORDER = [1, 3, 6, 15, 26, 28, 51, 58, 59, 43, 114, 108, 31, 33, 40,
 class NetworkDetector:
     def __init__(self, db_factory=SessionLocal):
         self.db_factory = db_factory
+        self._monitor_threads: dict[int, threading.Thread] = {}
+        self._monitor_stop_flags: dict[int, threading.Event] = {}
 
     def _load_known_devices(self) -> list[KnownDevice]:
         db = self.db_factory()
@@ -30,11 +36,7 @@ class NetworkDetector:
         normalized_fp = self._normalize_fp(fp)
         db = self.db_factory()
         try:
-            device = (
-                db.query(KnownDevice)
-                .filter(KnownDevice.dhcp_fingerprint == normalized_fp)
-                .first()
-            )
+            device = db.query(KnownDevice).filter(KnownDevice.dhcp_fingerprint == normalized_fp).first()
             print(f"[detector] lookup fp={normalized_fp!r} found={bool(device)}")
             if not device:
                 for d in db.query(KnownDevice).order_by(KnownDevice.id.asc()).all():
@@ -52,6 +54,42 @@ class NetworkDetector:
                 return fp
         print(f"[detector] no param_req_list found; options={pkt[DHCP].options}")
         return ""
+
+    def _monitor_disconnect(self, device_id: int, stop_flag: threading.Event):
+        while not stop_flag.is_set():
+            db = self.db_factory()
+            try:
+                device = db.query(KnownDevice).filter(KnownDevice.id == device_id).first()
+                if not device:
+                    print(f"[detector] monitor stopped device_id={device_id} not found")
+                    return
+                if not device.mac:
+                    print(f"[detector] monitor skipped device_id={device_id} no mac")
+                    return
+                network = device.ip if device.ip is not None else "10.0.0.0/24"
+                pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=network)
+                answered, _ = srp(pkt, timeout=2, verbose=False)
+                seen = any(rcv.hwsrc == device.mac for _, rcv in answered)
+                print(f"[detector] monitor device_id={device.id} owner={device.owner_name} seen={seen}")
+                if not seen:
+                    device_stats_service.mark_disconnected(db, device)
+                    print(f"[detector] device disconnected device_id={device.id} owner={device.owner_name}")
+                    return
+            finally:
+                db.close()
+            time.sleep(random.randint(30, 60))
+
+    def _start_monitor(self, device_id: int):
+        if device_id in self._monitor_threads:
+            stop_flag = self._monitor_stop_flags.get(device_id)
+            if stop_flag:
+                stop_flag.set()
+        stop_flag = threading.Event()
+        thread = threading.Thread(target=self._monitor_disconnect, args=(device_id, stop_flag), daemon=True)
+        self._monitor_stop_flags[device_id] = stop_flag
+        self._monitor_threads[device_id] = thread
+        thread.start()
+        print(f"[detector] started disconnect monitor device_id={device_id}")
 
     def handle_dhcp_packet(self, pkt):
         if BOOTP not in pkt or DHCP not in pkt:
@@ -71,25 +109,12 @@ class NetworkDetector:
                 print(f"[detector] match device_id={device.id} owner={device.owner_name}")
                 device_stats_service.mark_connected(db, device, mac)
                 print(f"[detector] mark_connected committed device_id={device.id} connected={device.connected} mac={device.mac}")
+                self._start_monitor(device.id)
             else:
                 print("[detector] no device match")
                 self._load_known_devices()
         finally:
             db.close()
-
-    def active_arp_check(self, device: KnownDevice):
-        if not device.mac:
-            print(f"[detector] arp check skipped device_id={device.id} no mac")
-            return False
-        network = device.ip if device.ip is not None else "10.0.0.0/24"
-        pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=network)
-        answered, _ = srp(pkt, timeout=2, verbose=False)
-        for _, rcv in answered:
-            if rcv.hwsrc == device.mac:
-                if device.ip is None:
-                    device.ip = rcv.psrc
-                return True
-        return False
 
     def sniff_dhcp(self):
         print("[detector] sniffing dhcp on host interface")

@@ -95,6 +95,7 @@ python -m app.worker
 - `[detector] sniffing dhcp on host interface`
 - `[detector] dhcp packet ...`
 - `[detector] match device_id=...`
+- `[detector] device disconnected ...`
 
 ### Option B: Run as a systemd service
 
