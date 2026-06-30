@@ -10,10 +10,21 @@ export default function AdminPage() {
   const [ownerName, setOwnerName] = useState('');
   const [fp, setFp] = useState('');
 
+  async function authFetch(url, options = {}) {
+    const token = localStorage.getItem('device_tracker_token');
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
   async function refresh() {
     const [u, d] = await Promise.all([
-      fetch(`${API}/admin/users`).then((r) => r.json()),
-      fetch(`${API}/devices`).then((r) => r.json()),
+      authFetch(`${API}/admin/users`).then((r) => r.json()),
+      authFetch(`${API}/devices`).then((r) => r.json()),
     ]);
     setUsers(u);
     setDevices(d);
@@ -23,7 +34,7 @@ export default function AdminPage() {
 
   async function createUser(e) {
     e.preventDefault();
-    await fetch(`${API}/admin/users`, {
+    await authFetch(`${API}/admin/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, is_admin: false }),
@@ -35,7 +46,7 @@ export default function AdminPage() {
 
   async function createDevice(e) {
     e.preventDefault();
-    await fetch(`${API}/devices`, {
+    await authFetch(`${API}/devices`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ owner_name: ownerName, dhcp_fingerprint: fp }),

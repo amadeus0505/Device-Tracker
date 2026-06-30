@@ -1,29 +1,48 @@
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function DashboardPage() {
   const [devices, setDevices] = useState([]);
   const [user, setUser] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`${API}/auth/me`).then((r) => r.ok ? r.json() : null).then(setUser).catch(() => setUser(null));
-    fetch(`${API}/devices`).then((r) => r.json()).then(setDevices).catch(() => setDevices([]));
+    const token = localStorage.getItem('device_tracker_token');
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
+    Promise.all([
+      fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API}/devices`, { headers: { Authorization: `Bearer ${token}` } }),
+    ])
+      .then(async ([userRes, devicesRes]) => {
+        if (!userRes.ok) throw new Error('Session abgelaufen');
+        const userData = await userRes.json();
+        const devicesData = await devicesRes.json();
+        setUser(userData);
+        setDevices(devicesData);
+      })
+      .catch((err) => {
+        setError(err.message || 'Fehler beim Laden');
+        localStorage.removeItem('device_tracker_token');
+        window.location.href = '/login';
+      });
   }, []);
 
   return (
     <main>
       <header style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <h1>Connected devices</h1>
-        <Link href="/admin">Admin</Link>
-        <Link href="/login">Login</Link>
-        {user ? <span>Signed in as {user.username}</span> : <span>Not signed in</span>}
+        {user ? <span>Signed in as {user.username}</span> : null}
       </header>
+      {error ? <p style={{ color: 'crimson' }}>{error}</p> : null}
       <ul>
         {devices.map((device) => (
           <li key={device.id}>
-            <Link href={`/devices/${device.id}`}>{device.owner_name}</Link>
+            <a href={`/devices/${device.id}`}>{device.owner_name}</a>
             {' '}— {device.connected ? 'connected' : 'offline'}
           </li>
         ))}

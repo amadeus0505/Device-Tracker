@@ -13,27 +13,12 @@ Full-stack device tracking dashboard with FastAPI, Next.js, and SQLite.
 
 ## Run locally
 
-### Backend
-```bash
-cd backend
-pip install -r requirements.txt
-python -m app.init_db
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
 ### Docker
 ```bash
 docker compose up --build
 ```
 
-## Default admin
+### Default admin
 - username: `admin`
 - password: `admin1234`
 
