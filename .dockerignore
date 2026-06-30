@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+.env.local
+backend/.venv/
+backend/device_tracker.db
+backend/__pycache__/
+frontend/.next/
+frontend/node_modules/
