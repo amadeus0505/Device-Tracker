@@ -5,7 +5,7 @@ Full-stack device tracking dashboard with FastAPI, Next.js, and SQLite.
 ## Overview
 - **Web app** runs in Docker Compose
 - **Detector service** runs on the Linux host for reliable ARP/DHCP visibility
-- **SQLite** remains the storage backend
+- **SQLite** is stored on the host in `./data/device_tracker.db`
 - **Login-only** access with admin-created users
 
 ## Services
@@ -36,9 +36,18 @@ docker compose up --build
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 
+## Database location
+
+The database file is created automatically on first start at:
+```bash
+./data/device_tracker.db
+```
+
+If the file does not exist yet, that is normal — SQLite creates it when the backend first writes to it.
+
 ## Run the detector on the host
 
-The detector is designed to run outside Docker so it can see the local network traffic directly.
+The detector must use the same database file as the Docker backend.
 
 ### Option A: Run directly with Python
 
@@ -113,17 +122,39 @@ Check:
 - some routers only expose limited broadcast traffic
 - ensure `CAP_NET_RAW` and `CAP_NET_ADMIN` are available
 
-### 3) Backend startup errors
+### 3) SQLite read-only / write errors
+If you see `attempt to write a readonly database`, usually one of these is true:
+- the detector is pointing at a different database file than the backend
+- the `./data` directory is missing or not writable
+- the backend was started before the shared `./data` mount existed
+- file ownership/permissions prevent writes
+
+Check:
+```bash
+mkdir -p ./data
+touch ./data/device_tracker.db
+ls -ld ./data
+ls -l ./data/device_tracker.db
+```
+
+If needed, fix ownership:
+```bash
+sudo chown -R "$USER":"$USER" ./data
+chmod 775 ./data
+chmod 664 ./data/device_tracker.db
+```
+
+### 4) Backend startup errors
 - inspect backend logs in Docker Compose
 - if you see bcrypt/passlib errors, rebuild after updating dependencies
 - if SQLite is locked, stop all processes using the DB and retry
 
-### 4) Login fails
+### 5) Login fails
 - default user is `admin / admin1234`
-- if the DB volume already existed, the admin account may have been seeded earlier with a different state
+- if the DB already existed, the admin account may have been seeded earlier with a different state
 - try `docker compose down -v` if you want a clean reset
 
-### 5) Container networking questions
+### 6) Container networking questions
 The detector is intentionally **not** run inside Docker because a normal container network does not reliably observe LAN DHCP/ARP traffic.
 Only the web app uses Docker now; the detector should run on the host.
 
@@ -131,6 +162,6 @@ Only the web app uses Docker now; the detector should run on the host.
 If you want to wipe the database and start fresh:
 ```bash
 docker compose down -v
-rm -f backend/device_tracker.db
+rm -f ./data/device_tracker.db
 ```
 Then start the stack again and rerun the detector setup.

@@ -6,7 +6,7 @@ services:
       - '8000:8000'
     volumes:
       - ./backend:/app
-      - backend_data:/app/data
+      - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
@@ -22,6 +22,3 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NODE_ENV=development
-
-volumes:
-  backend_data:
