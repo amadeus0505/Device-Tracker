@@ -50,5 +50,7 @@ class DeviceStats(BaseModel):
     owner_name: str
     connected: bool
     total_sessions: int
-    recent_sessions: int
+    recent_sessions_7: int
+    recent_sessions_30: int
     total_minutes_connected: int
+    last_seen: str | None = None
